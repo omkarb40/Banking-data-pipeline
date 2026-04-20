@@ -167,4 +167,4 @@ cd banking_dbt && dbt run && dbt test
 - **Weighted distributions** — realistic transaction patterns (not uniform random)
 - **Streaming mode** — continuous INSERT/UPDATE generation for live CDC demos
 
-## Reference and Credit
+## Reference
