@@ -1,0 +1,159 @@
+# ============================================================
+# Banking Data Generator — Configuration
+# ============================================================
+
+database:
+  host: "localhost"
+  port: 5432
+  name: "banking_oltp"
+  user: "banking_user"
+  password: "banking_pass"       # override via env: POSTGRES_PASSWORD
+
+generation:
+  # Initial seed volumes
+  customers: 500
+  accounts_per_customer:
+    min: 1
+    max: 3
+  transactions_per_account:
+    min: 10
+    max: 50
+  loans_probability: 0.15        # 15% of customers get a loan
+
+  # Continuous streaming mode (drives CDC events)
+  streaming:
+    enabled: true
+    interval_seconds: 5           # new batch every N seconds
+    batch_size: 10                # transactions per batch
+    update_probability: 0.20      # chance of UPDATE vs INSERT per iteration
+    new_customer_probability: 0.05
+    flag_probability: 0.03        # chance a transaction gets flagged
+
+# ── Weighted distributions ───────────────────────────────────
+# These make the generated data look realistic rather than
+# uniformly random. Recruiters who open your Snowflake tables
+# and see believable distributions will notice.
+
+distributions:
+  account_types:
+    checking: 0.40
+    savings: 0.30
+    credit: 0.15
+    loan: 0.10
+    money_market: 0.05
+
+  transaction_types:
+    deposit: 0.25
+    withdrawal: 0.25
+    transfer: 0.20
+    payment: 0.15
+    fee: 0.05
+    interest: 0.05
+    refund: 0.05
+
+  channels:
+    online: 0.35
+    mobile: 0.30
+    atm: 0.15
+    branch: 0.10
+    ach: 0.07
+    wire: 0.03
+
+  employment_statuses:
+    employed: 0.55
+    self_employed: 0.15
+    retired: 0.12
+    student: 0.10
+    unemployed: 0.08
+
+  risk_ratings:
+    low: 0.50
+    medium: 0.35
+    high: 0.15
+
+  loan_types:
+    personal: 0.30
+    auto: 0.25
+    mortgage: 0.20
+    student: 0.10
+    business: 0.10
+    home_equity: 0.05
+
+  # Merchant categories (for debit/credit transactions)
+  merchant_categories:
+    groceries: 0.20
+    restaurants: 0.15
+    gas_station: 0.10
+    online_shopping: 0.15
+    utilities: 0.10
+    healthcare: 0.08
+    entertainment: 0.07
+    travel: 0.05
+    education: 0.05
+    other: 0.05
+
+  balance_ranges:
+    checking:
+      min: 100
+      max: 25000
+    savings:
+      min: 500
+      max: 100000
+    credit:
+      min: -15000
+      max: 0
+    loan:
+      min: 5000
+      max: 500000
+    money_market:
+      min: 10000
+      max: 250000
+
+  transaction_amounts:
+    deposit:
+      min: 50
+      max: 10000
+    withdrawal:
+      min: 20
+      max: 5000
+    transfer:
+      min: 100
+      max: 25000
+    payment:
+      min: 25
+      max: 3000
+    fee:
+      min: 5
+      max: 50
+    interest:
+      min: 1
+      max: 500
+    refund:
+      min: 10
+      max: 2000
+
+  annual_income_ranges:
+    employed:
+      min: 35000
+      max: 200000
+    self_employed:
+      min: 25000
+      max: 350000
+    retired:
+      min: 20000
+      max: 120000
+    student:
+      min: 5000
+      max: 30000
+    unemployed:
+      min: 0
+      max: 15000
+
+  flag_reasons:
+    - "Unusual transaction amount"
+    - "Transaction outside normal hours"
+    - "Multiple rapid transactions"
+    - "New merchant in high-risk category"
+    - "Cross-border transaction flagged"
+    - "Velocity check triggered"
+    - "Amount exceeds daily limit"
