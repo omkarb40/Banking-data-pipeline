@@ -1,0 +1,60 @@
+version: 2
+
+models:
+  - name: dim_customers
+    description: "Customer dimension with aggregated account and loan metrics"
+    columns:
+      - name: customer_id
+        tests: [unique, not_null]
+      - name: credit_tier
+        tests:
+          - accepted_values:
+              values: ['excellent', 'good', 'fair', 'poor', 'very_poor']
+      - name: customer_segment
+        tests:
+          - accepted_values:
+              values: ['high_value', 'mid_value', 'standard']
+
+  - name: dim_accounts
+    description: "Account dimension with customer info and transaction summary"
+    columns:
+      - name: account_id
+        tests: [unique, not_null]
+      - name: customer_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_customers')
+              field: customer_id
+
+  - name: fct_transactions
+    description: "Transaction fact table with derived analytics columns"
+    columns:
+      - name: transaction_id
+        tests: [unique, not_null]
+      - name: account_id
+        tests: [not_null]
+      - name: amount
+        tests: [not_null]
+      - name: flow_direction
+        tests:
+          - accepted_values:
+              values: ['inflow', 'outflow', 'transfer']
+
+  - name: fct_daily_balances
+    description: "Daily transaction aggregation per account"
+    columns:
+      - name: account_id
+        tests: [not_null]
+      - name: txn_date
+        tests: [not_null]
+
+  - name: fct_loan_performance
+    description: "Loan-level risk and performance metrics"
+    columns:
+      - name: loan_id
+        tests: [unique, not_null]
+      - name: risk_category
+        tests:
+          - accepted_values:
+              values: ['current', 'past_due', 'high_risk', 'defaulted', 'paid_off', 'applied', 'approved']

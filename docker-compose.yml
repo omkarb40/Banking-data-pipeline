@@ -1,0 +1,305 @@
+version: "3.9"
+
+# ============================================================
+# Banking Modern Data Stack — Docker Compose
+# ============================================================
+# Phase 1: PostgreSQL (OLTP source)
+# Phase 2: Zookeeper + Kafka + Debezium + MinIO + Kafka UI
+# Phase 3: Airflow (orchestration)
+# ============================================================
+# Usage:
+#   Phase 1 only:  docker compose up postgres -d
+#   Phase 2 add:   docker compose up -d
+#   Full stack:    docker compose --profile airflow up -d
+# ============================================================
+
+services:
+
+  # ────────────────────────────────────────────────────────────
+  # PHASE 1: PostgreSQL — Source OLTP Database
+  # ────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:15
+    container_name: banking_postgres
+    environment:
+      POSTGRES_DB: banking_oltp
+      POSTGRES_USER: banking_user
+      POSTGRES_PASSWORD: banking_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+    command:
+      - "postgres"
+      - "-c"
+      - "wal_level=logical"
+      - "-c"
+      - "max_replication_slots=4"
+      - "-c"
+      - "max_wal_senders=4"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U banking_user -d banking_oltp"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - banking_network
+
+  # ────────────────────────────────────────────────────────────
+  # PHASE 2: Zookeeper — Kafka Coordination
+  # ────────────────────────────────────────────────────────────
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: banking_zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - banking_network
+
+  # ────────────────────────────────────────────────────────────
+  # PHASE 2: Kafka — Message Broker
+  # ────────────────────────────────────────────────────────────
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: banking_kafka
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_LOG_RETENTION_HOURS: 168
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - banking_network
+
+  # ────────────────────────────────────────────────────────────
+  # PHASE 2: Kafka Connect + Debezium — CDC Engine
+  # ────────────────────────────────────────────────────────────
+  kafka-connect:
+    image: debezium/connect:2.4
+    container_name: banking_kafka_connect
+    depends_on:
+      kafka:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8083:8083"
+    environment:
+      BOOTSTRAP_SERVERS: kafka:29092
+      GROUP_ID: banking-connect-cluster
+      CONFIG_STORAGE_TOPIC: _connect-configs
+      OFFSET_STORAGE_TOPIC: _connect-offsets
+      STATUS_STORAGE_TOPIC: _connect-status
+      CONFIG_STORAGE_REPLICATION_FACTOR: 1
+      OFFSET_STORAGE_REPLICATION_FACTOR: 1
+      STATUS_STORAGE_REPLICATION_FACTOR: 1
+      KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      KEY_CONVERTER_SCHEMAS_ENABLE: "false"
+      VALUE_CONVERTER_SCHEMAS_ENABLE: "false"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8083/connectors"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 45s
+    networks:
+      - banking_network
+
+  # ────────────────────────────────────────────────────────────
+  # PHASE 2: MinIO — S3-Compatible Data Lake
+  # ────────────────────────────────────────────────────────────
+  minio:
+    image: minio/minio:latest
+    container_name: banking_minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minio_admin
+      MINIO_ROOT_PASSWORD: minio_password
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - banking_network
+
+  # ────────────────────────────────────────────────────────────
+  # PHASE 2: Kafka UI — Cluster Monitoring (Differentiator)
+  # ────────────────────────────────────────────────────────────
+  # Most tutorial projects skip this. Adding it shows you think
+  # about observability, not just the happy path.
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: banking_kafka_ui
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8085:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: banking-cluster
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+      KAFKA_CLUSTERS_0_KAFKACONNECT_0_NAME: banking-connect
+      KAFKA_CLUSTERS_0_KAFKACONNECT_0_ADDRESS: http://kafka-connect:8083
+    networks:
+      - banking_network
+
+  # ────────────────────────────────────────────────────────────
+  # PHASE 3: Airflow — Metadata Database
+  # ────────────────────────────────────────────────────────────
+  airflow-postgres:
+    image: postgres:15
+    container_name: banking_airflow_postgres
+    profiles:
+      - airflow
+    environment:
+      POSTGRES_DB: airflow
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+    volumes:
+      - airflow_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airflow -d airflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - banking_network
+
+  # ────────────────────────────────────────────────────────────
+  # PHASE 3: Airflow — Init (one-time setup)
+  # ────────────────────────────────────────────────────────────
+  airflow-init:
+    build:
+      context: .
+      dockerfile: dockerfile-airflow.dockerfile
+    container_name: banking_airflow_init
+    profiles:
+      - airflow
+    depends_on:
+      airflow-postgres:
+        condition: service_healthy
+    environment: &airflow-env
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres/airflow
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__CORE__FERNET_KEY: "zTpx5XaJ4rOKgN6p7qYhM-v9dE3sB8wC2fL1gH0iJkU="
+      AIRFLOW__WEBSERVER__SECRET_KEY: "banking_airflow_secret_key_2024"
+      # Snowflake connection vars (set these in .env file)
+      SNOWFLAKE_ACCOUNT: ${SNOWFLAKE_ACCOUNT:-}
+      SNOWFLAKE_USER: ${SNOWFLAKE_USER:-}
+      SNOWFLAKE_PASSWORD: ${SNOWFLAKE_PASSWORD:-}
+    entrypoint: >
+      bash -c "
+        airflow db init &&
+        airflow users create
+          --username admin
+          --password admin
+          --firstname Admin
+          --lastname User
+          --role Admin
+          --email admin@banking.local &&
+        echo 'Airflow initialized successfully'
+      "
+    networks:
+      - banking_network
+
+  # ────────────────────────────────────────────────────────────
+  # PHASE 3: Airflow — Webserver
+  # ────────────────────────────────────────────────────────────
+  airflow-webserver:
+    build:
+      context: .
+      dockerfile: dockerfile-airflow.dockerfile
+    container_name: banking_airflow_webserver
+    profiles:
+      - airflow
+    depends_on:
+      airflow-postgres:
+        condition: service_healthy
+    environment: *airflow-env
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./docker/dags:/opt/airflow/dags
+      - airflow_logs:/opt/airflow/logs
+    command: airflow webserver
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      - banking_network
+
+  # ────────────────────────────────────────────────────────────
+  # PHASE 3: Airflow — Scheduler
+  # ────────────────────────────────────────────────────────────
+  airflow-scheduler:
+    build:
+      context: .
+      dockerfile: dockerfile-airflow.dockerfile
+    container_name: banking_airflow_scheduler
+    profiles:
+      - airflow
+    depends_on:
+      airflow-postgres:
+        condition: service_healthy
+    environment: *airflow-env
+    volumes:
+      - ./docker/dags:/opt/airflow/dags
+      - airflow_logs:/opt/airflow/logs
+    command: airflow scheduler
+    restart: unless-stopped
+    networks:
+      - banking_network
+
+# ──────────────────────────────────────────────────────────────
+# Volumes
+# ──────────────────────────────────────────────────────────────
+volumes:
+  postgres_data:
+  minio_data:
+  airflow_pg_data:
+  airflow_logs:
+
+# ──────────────────────────────────────────────────────────────
+# Network
+# ──────────────────────────────────────────────────────────────
+networks:
+  banking_network:
+    driver: bridge

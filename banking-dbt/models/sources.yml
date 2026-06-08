@@ -1,0 +1,29 @@
+version: 2
+
+sources:
+  - name: bronze
+    database: BANKING_DW
+    schema: BRONZE
+    description: "Raw CDC data ingested from MinIO. Each table stores Debezium JSON payloads as VARIANT."
+    tables:
+      - name: RAW_CUSTOMERS
+        description: "Raw CDC events for the customers table"
+        columns:
+          - name: raw_data
+            description: "Debezium JSON payload (VARIANT)"
+          - name: source_file
+            description: "MinIO file path this record came from"
+          - name: loaded_at
+            description: "Timestamp when record was loaded into Bronze"
+
+      - name: RAW_ACCOUNTS
+        description: "Raw CDC events for the accounts table"
+
+      - name: RAW_TRANSACTIONS
+        description: "Raw CDC events for the transactions table"
+
+      - name: RAW_LOANS
+        description: "Raw CDC events for the loans table"
+
+      - name: RAW_AUDIT_LOG
+        description: "Raw CDC events for the audit_log table"

@@ -1,0 +1,112 @@
+version: 2
+
+models:
+  - name: stg_customers
+    description: "Cleaned and typed customer records from Bronze CDC data"
+    columns:
+      - name: customer_id
+        description: "Primary key (UUID)"
+        tests:
+          - unique
+          - not_null
+      - name: email
+        tests:
+          - unique
+          - not_null
+      - name: credit_score
+        description: "FICO score range 300-850"
+        tests:
+          - not_null
+      - name: employment_status
+        tests:
+          - accepted_values:
+              values: ['employed', 'self_employed', 'unemployed', 'retired', 'student']
+      - name: risk_rating
+        tests:
+          - accepted_values:
+              values: ['low', 'medium', 'high']
+
+  - name: stg_accounts
+    description: "Cleaned and typed account records from Bronze CDC data"
+    columns:
+      - name: account_id
+        description: "Primary key (UUID)"
+        tests:
+          - unique
+          - not_null
+      - name: customer_id
+        description: "FK to stg_customers"
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_customers')
+              field: customer_id
+      - name: account_type
+        tests:
+          - accepted_values:
+              values: ['checking', 'savings', 'credit', 'loan', 'money_market']
+      - name: status
+        tests:
+          - accepted_values:
+              values: ['active', 'inactive', 'frozen', 'closed']
+      - name: account_number
+        tests:
+          - unique
+          - not_null
+
+  - name: stg_transactions
+    description: "Cleaned and typed transaction records from Bronze CDC data"
+    columns:
+      - name: transaction_id
+        description: "Primary key (UUID)"
+        tests:
+          - unique
+          - not_null
+      - name: account_id
+        description: "FK to stg_accounts"
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_accounts')
+              field: account_id
+      - name: transaction_type
+        tests:
+          - accepted_values:
+              values: ['deposit', 'withdrawal', 'transfer', 'payment', 'fee', 'interest', 'refund']
+      - name: status
+        tests:
+          - accepted_values:
+              values: ['pending', 'completed', 'failed', 'reversed']
+      - name: channel
+        tests:
+          - accepted_values:
+              values: ['branch', 'atm', 'online', 'mobile', 'wire', 'ach']
+      - name: amount
+        tests:
+          - not_null
+
+  - name: stg_loans
+    description: "Cleaned and typed loan records from Bronze CDC data"
+    columns:
+      - name: loan_id
+        description: "Primary key (UUID)"
+        tests:
+          - unique
+          - not_null
+      - name: customer_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_customers')
+              field: customer_id
+      - name: loan_type
+        tests:
+          - accepted_values:
+              values: ['personal', 'auto', 'mortgage', 'student', 'business', 'home_equity']
+      - name: status
+        tests:
+          - accepted_values:
+              values: ['applied', 'approved', 'disbursed', 'repaying', 'closed', 'defaulted']
+      - name: principal
+        tests:
+          - not_null
