@@ -286,7 +286,7 @@ CREATE TRIGGER trg_customers_audit
     EXECUTE FUNCTION fn_audit_log();
 
 -- ============================================================
--- SEED DATA — Branches (reference data)
+-- SEED DATA — Branches 
 -- ============================================================
 INSERT INTO branches (branch_name, branch_code, address, city, state, zip_code, phone, opened_date)
 VALUES

@@ -1,5 +1,5 @@
 -- ============================================================
--- Snowflake Setup — Run this in Snowflake UI (Worksheets)
+-- Snowflake Setup
 -- ============================================================
 -- Creates: warehouse, database, schemas, roles, Bronze tables
 -- Run as ACCOUNTADMIN or SYSADMIN
@@ -29,7 +29,7 @@ GRANT ALL ON ALL SCHEMAS IN DATABASE BANKING_DW TO ROLE BANKING_TRANSFORMER;
 GRANT ALL ON FUTURE TABLES IN DATABASE BANKING_DW TO ROLE BANKING_TRANSFORMER;
 GRANT ALL ON FUTURE VIEWS IN DATABASE BANKING_DW TO ROLE BANKING_TRANSFORMER;
 
--- Grant role to your user
+
 -- GRANT ROLE BANKING_TRANSFORMER TO USER <your_username>;
 
 -- ── Bronze Landing Tables ───────────────────────────────────
