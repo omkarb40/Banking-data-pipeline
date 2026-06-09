@@ -1,16 +1,9 @@
-version: "3.9"
-
 # ============================================================
 # Banking Modern Data Stack — Docker Compose
 # ============================================================
 # Phase 1: PostgreSQL (OLTP source)
 # Phase 2: Zookeeper + Kafka + Debezium + MinIO + Kafka UI
 # Phase 3: Airflow (orchestration)
-# ============================================================
-# Usage:
-#   Phase 1 only:  docker compose up postgres -d
-#   Phase 2 add:   docker compose up -d
-#   Full stack:    docker compose --profile airflow up -d
 # ============================================================
 
 services:
@@ -222,17 +215,7 @@ services:
       SNOWFLAKE_USER: ${SNOWFLAKE_USER:-}
       SNOWFLAKE_PASSWORD: ${SNOWFLAKE_PASSWORD:-}
     entrypoint: >
-      bash -c "
-        airflow db init &&
-        airflow users create
-          --username admin
-          --password admin
-          --firstname Admin
-          --lastname User
-          --role Admin
-          --email admin@banking.local &&
-        echo 'Airflow initialized successfully'
-      "
+      bash -c "airflow db migrate && airflow users create --username admin --password admin --firstname Admin --lastname User --role Admin --email admin@banking.local && echo 'Airflow initialized successfully'"
     networks:
       - banking_network
 
