@@ -208,6 +208,7 @@ services:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres/airflow
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__CORE__TEST_CONNECTION: "Enabled"
       AIRFLOW__CORE__FERNET_KEY: "zTpx5XaJ4rOKgN6p7qYhM-v9dE3sB8wC2fL1gH0iJkU="
       AIRFLOW__WEBSERVER__SECRET_KEY: "banking_airflow_secret_key_2024"
       # Snowflake connection vars (set these in .env file)
