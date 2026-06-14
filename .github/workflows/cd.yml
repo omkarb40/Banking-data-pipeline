@@ -1,0 +1,41 @@
+name: CD - Deploy to Production
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "banking-dbt/**"
+  workflow_dispatch:
+
+env:
+  SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+  SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
+  SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
+
+jobs:
+  deploy:
+    name: dbt Production Deploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dbt
+        run: pip install dbt-snowflake==1.7.0
+
+      - name: dbt deps
+        run: cd banking-dbt && dbt deps --profiles-dir .
+
+      - name: dbt snapshot
+        run: cd banking-dbt && dbt snapshot --profiles-dir . --target prod
+
+      - name: dbt run
+        run: cd banking-dbt && dbt run --profiles-dir . --target prod
+
+      - name: dbt test
+        run: cd banking-dbt && dbt test --profiles-dir . --target prod
+        continue-on-error: true

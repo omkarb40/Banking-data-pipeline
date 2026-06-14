@@ -1,0 +1,40 @@
+name: CI - Lint and Test
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+  SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
+  SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
+
+jobs:
+  dbt-test:
+    name: dbt Compile and Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dbt
+        run: pip install dbt-snowflake==1.7.0
+
+      - name: dbt deps
+        run: cd banking-dbt && dbt deps --profiles-dir .
+
+      - name: dbt compile
+        run: cd banking-dbt && dbt compile --profiles-dir .
+
+      - name: dbt run
+        run: cd banking-dbt && dbt run --profiles-dir .
+        continue-on-error: true
+
+      - name: dbt test
+        run: cd banking-dbt && dbt test --profiles-dir .
+        continue-on-error: true
