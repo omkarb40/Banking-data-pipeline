@@ -216,7 +216,3 @@ Add `SNOWFLAKE_ACCOUNT`, `SNOWFLAKE_USER`, `SNOWFLAKE_PASSWORD` as GitHub Secret
 - **Debezium with Avro + Schema Registry** instead of raw JSON (schema evolution, smaller payloads)
 - **Monitoring and alerting** via Datadog or Grafana on Kafka lag, Airflow task failures, dbt test results
 - **Snowflake Streams + Tasks** as an alternative to dbt for near-real-time Silver/Gold layer updates
-
-## License
-
-MIT
