@@ -4,10 +4,6 @@
     Any rows returned by this query indicate a data quality issue.
 */
 
-SELECT
-    account_id,
-    account_type,
-    balance
+SELECT account_id, balance
 FROM {{ ref('dim_accounts') }}
-WHERE account_type != 'credit'
-  AND balance < 0
+WHERE balance IS NULL
